@@ -1,19 +1,11 @@
-from flask import Flask, g, render_template, make_response, request, redirect, url_for, jsonify
+from flask import Flask, g
 from flask_ask import Ask, statement, question, session
 import rethinkdb as r
 from rethinkdb import RqlRuntimeError, RqlDriverError
 
-import json
-import requests
-import time
-import unidecode
 import logging
-from fuzzywuzzy import fuzz
-import os
 
 from datetime import datetime
-from dateutil import tz
-import re
 
 app = Flask(__name__)
 ask = Ask(app, "/dogpictures")
@@ -63,7 +55,7 @@ def teardown_request(exception):
         pass
 
 
-def create_dog(number):
+def update_dog(number):
     data = {}
     data['id'] = 1
     data['pictureToShow'] = number
@@ -122,7 +114,7 @@ def all_dogs():
 
 @ask.intent("ShowDogPictureIntent")
 def share_dog_picture(number):
-    create_dog(number)
+    update_dog(number)
     msg = 'You said number {}, Do you want to search more'.format(number)
     return question(msg)
 
