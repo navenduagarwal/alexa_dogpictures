@@ -1,5 +1,6 @@
-from flask import Flask, g
+from flask import Flask, g, jsonify
 from flask_ask import Ask, statement, question, session
+from flask_cors import CORS
 import rethinkdb as r
 from rethinkdb import RqlRuntimeError, RqlDriverError
 
@@ -8,6 +9,7 @@ import logging
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)
 ask = Ask(app, "/dogpictures")
 
 
@@ -58,10 +60,22 @@ def teardown_request(exception):
 def update_dog(number):
     data = {}
     data['id'] = 1
-    data['pictureToShow'] = number
+    data['dogPicture'] = number
     data['updated'] = datetime.now(r.make_timezone('00:00'))
     new_dog = r.table("dogpictures").get(1).replace(data).run(g.rdb_conn)
     return 'success!'
+
+
+def get_dog(number):
+    result = r.table("dogpictures").get(1).run(g.rdb_conn)
+    print "got values {}".format(result)
+    return result
+
+
+@app.route('/getdog')
+def getdog():
+    result = jsonify(get_dog(1))
+    return result
 
 
 dbSetup()
