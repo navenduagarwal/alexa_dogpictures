@@ -19,7 +19,7 @@ def homepage():
     return 'hi you, how ya doin?'
 
 
-# json key values exported from firebase portal
+# admin json key values exported from firebase portal
 cred = credentials.Certificate(value)
 
 default_app = firebase_admin.initialize_app(cred, {
