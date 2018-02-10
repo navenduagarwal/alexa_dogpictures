@@ -1,8 +1,9 @@
-from flask import Flask, g, jsonify
-from flask_ask import Ask, statement, question, session
+from flask import Flask, jsonify
+from credentials import value
+from flask_ask import Ask, statement, question
 from flask_cors import CORS
-import rethinkdb as r
-from rethinkdb import RqlRuntimeError, RqlDriverError
+import firebase_admin
+from firebase_admin import credentials, db
 
 import logging
 
@@ -18,6 +19,13 @@ def homepage():
     return 'hi you, how ya doin?'
 
 
+# json key values exported from firebase portal
+cred = credentials.Certificate(value)
+
+default_app = firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://alexa-dogpictures.firebaseio.com/'
+})
+
 app.config.update(dict(
     DEBUG=True,
     RDB_HOST='localhost',
@@ -26,59 +34,26 @@ app.config.update(dict(
 ))
 
 
-# db setup; only run once
-def dbSetup():
-    connection = r.connect(host=app.config['RDB_HOST'], port=app.config['RDB_PORT'])
-    try:
-        r.db_create(app.config['RDB_DB']).run(connection)
-        r.db(app.config['RDB_DB']).table_create('DogPictures').run(connection)
-        print 'Database setup completed'
-    except RqlRuntimeError:
-        print 'Database already exists'
-    finally:
-        connection.close()
-
-
-# open connection before each request
-@app.before_request
-def before_request():
-    try:
-        g.rdb_conn = r.connect(host=app.config['RDB_HOST'], port=app.config['RDB_PORT'], db=app.config['RDB_DB'])
-    except RqlDriverError:
-        abort(503, "Database connection could be established.")
-
-
-# close the connection after each request
-@app.teardown_request
-def teardown_request(exception):
-    try:
-        g.rdb_conn.close()
-    except AttributeError:
-        pass
-
-
 def update_dog(number):
-    data = {}
-    data['id'] = 1
-    data['dogPicture'] = number
-    data['updated'] = datetime.now(r.make_timezone('00:00'))
-    new_dog = r.table("dogpictures").get(1).replace(data).run(g.rdb_conn)
+    ref = db.reference('DogPictures').child('1')
+    print(ref)
+    values = {
+        'dogPicture': number
+    }
+    ref.update(values)
     return 'success!'
-
-
-def get_dog(number):
-    result = r.table("dogpictures").get(1).run(g.rdb_conn)
-    print "got values {}".format(result)
-    return result
 
 
 @app.route('/getdog')
 def getdog():
-    result = jsonify(get_dog(1))
-    return result
+    try:
+        ref = db.reference('DogPictures').child('1').get()
+        print(ref)
+        result = jsonify(ref)
+        return result
+    except Exception as err:
+        return {'error': err.message}
 
-
-dbSetup()
 
 log = logging.getLogger()
 log.addHandler(logging.StreamHandler())
@@ -92,7 +67,7 @@ def start_skill():
     return question(welcome_message)
 
 
-@ask.intent("NoIntent")
+@ask.intent("AMAZON.NoIntent")
 def no_intent():
     bye_text = "Thank you... bye"
     return statement(bye_text)
@@ -108,7 +83,7 @@ def CancelIntent():
     return statement('Cancelling, bye bye, have a nice day')
 
 
-@ask.intent("YesIntent")
+@ask.intent("AMAZON.YesIntent")
 def YesIntent():
     yes_message = "Please confirm which dog picture you will like to see?"
     return question(yes_message)
@@ -120,10 +95,10 @@ def HelpIntent():
     return question(help_message)
 
 
-@ask.intent("ShowAllDogPicturesIntent")
-def all_dogs():
-    msg = '{}, Do you want to search more'.format('all dogs')
-    return question(msg)
+# @ask.intent("ShowAllDogPicturesIntent")
+# def all_dogs():
+#     msg = '{}, Do you want to search more'.format('all dogs')
+#     return question(msg)
 
 
 @ask.intent("ShowDogPictureIntent")
